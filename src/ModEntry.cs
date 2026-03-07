@@ -6,9 +6,11 @@ using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Nodes.RestSite;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Runs;
+using RemoveMultiplayerPlayerLimit.src;
 using RemoveMultiplayerPlayetLimit.src;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -46,24 +48,31 @@ public static partial class ModEntry
 
 	public static void Initialize()
 	{
-        LoadOptions();
+		try
+		{
+            LoadOptions();
 
-        SlotIdBits = RequiredBitsForExclusiveUpperBound(Option.PlayerLimit);
+            SlotIdBits = RequiredBitsForExclusiveUpperBound(Option.PlayerLimit);
 
-        LobbyListLengthBits = RequiredBitsForExclusiveUpperBound(Option.PlayerLimit + 1);
+            LobbyListLengthBits = RequiredBitsForExclusiveUpperBound(Option.PlayerLimit + 1);
 
-        SlotIdCapacity = 1 << SlotIdBits;
+            SlotIdCapacity = 1 << SlotIdBits;
 
-        LobbyListLengthCapacity = 1 << LobbyListLengthBits;
+            LobbyListLengthCapacity = 1 << LobbyListLengthBits;
 
-        Harmony.PatchAll();
+            Harmony.PatchAll();
 
-        Log.Info($"RemoveMultiplayerPlayerLimit loaded. Target limit: {Option.PlayerLimit}, slot capacity: {SlotIdCapacity}, lobby list capacity: {LobbyListLengthCapacity}");
+            Log.Info($"RemoveMultiplayerPlayerLimit loaded. Target limit: {Option.PlayerLimit}, slot capacity: {SlotIdCapacity}, lobby list capacity: {LobbyListLengthCapacity}");
+        }
+		catch (Exception e)
+		{
+            File.AppendAllText(Path.Combine(Pathes.RootPath, "logs.txt"), e.Message + e.StackTrace);
+        }
 	}
 
 	private static void LoadOptions()
 	{
-		string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods", ModFolderName, ConfigFileName);
+		string configPath = Pathes.ConfigPath;
 
 		if (!File.Exists(configPath))
 			WriteDefaultConfig(configPath, DefaultPlayerLimit);

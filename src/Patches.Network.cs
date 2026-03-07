@@ -7,9 +7,11 @@ using MegaCrit.Sts2.Core.Multiplayer.Game.Lobby;
 using MegaCrit.Sts2.Core.Multiplayer.Messages.Lobby;
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
 using MegaCrit.Sts2.Core.Runs;
+using RemoveMultiplayerPlayerLimit.src;
 using RemoveMultiplayerPlayetLimit.src.Extensions;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -22,11 +24,11 @@ public static partial class ModEntry
 
 	private static readonly MethodInfo ReaderReadIntWithBitsMethod = typeof(PacketReader).GetMethod(nameof(PacketReader.ReadInt));
 
-	private static readonly MethodInfo WriterWriteListWithBitsMethod = typeof(PacketWriter).GetMethod(nameof(PacketWriter.WriteList));
+	private static readonly MethodInfo WriterWriteListWithBitsMethod = typeof(PacketWriter).GetMethod(nameof(PacketWriter.WriteList)).MakeGenericMethod([typeof(LobbyPlayer)]);
 
-	private static readonly MethodInfo ReaderReadListWithBitsMethod = typeof(PacketReader).GetMethod(nameof(PacketReader.ReadList));
+	private static readonly MethodInfo ReaderReadListWithBitsMethod = typeof(PacketReader).GetMethod(nameof(PacketReader.ReadList)).MakeGenericMethod([typeof(LobbyPlayer)]);
 
-	[HarmonyPatch(typeof(NetHostGameService), nameof(NetHostGameService.StartENetHost))]
+    [HarmonyPatch(typeof(NetHostGameService), nameof(NetHostGameService.StartENetHost))]
 	private static class StartENetHostPatch
 	{
 		private static void Prefix(ref int maxClients) => maxClients = Math.Max(maxClients, Option.PlayerLimit);
@@ -61,7 +63,8 @@ public static partial class ModEntry
 	}
 
 	[HarmonyPatch(typeof(ClientLobbyJoinResponseMessage), nameof(ClientLobbyJoinResponseMessage.Serialize))]
-	private static class ClientLobbyJoinResponseSerializePatch
+	[HarmonyDebug]
+    private static class ClientLobbyJoinResponseSerializePatch
 	{
 		private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) => ReplaceBitWidthBeforeCall(instructions, WriterWriteListWithBitsMethod, VanillaLobbyListLengthBits, LobbyListLengthBits, nameof(ClientLobbyJoinResponseSerializePatch));
 	}
@@ -105,12 +108,12 @@ public static partial class ModEntry
 		}
 
 		if (!replace)
-			throw new InvalidOperationException($"{patchName}: no bit-width operand replaced, game code may have changed.");
+            throw new InvalidOperationException($"{patchName}: no bit-width operand replaced, game code may have changed.");
 
-		return codes;
+        return codes;
 	}
 
-	private static bool TryReadLdcI4(CodeInstruction instruction, out int? value)
+    private static bool TryReadLdcI4(CodeInstruction instruction, out int? value)
     {
         var v = instruction.opcode.Value;
 
